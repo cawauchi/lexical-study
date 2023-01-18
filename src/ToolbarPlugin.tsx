@@ -75,6 +75,7 @@ function FloatingLinkEditor({ editor }: { editor: LexicalEditor }) {
     const rootElement = editor.getRootElement();
     if (
       selection !== null &&
+      nativeSelection &&
       !nativeSelection.isCollapsed &&
       rootElement !== null &&
       rootElement.contains(nativeSelection.anchorNode)
@@ -84,7 +85,7 @@ function FloatingLinkEditor({ editor }: { editor: LexicalEditor }) {
       if (nativeSelection.anchorNode === rootElement) {
         let inner = rootElement;
         while (inner.firstElementChild != null) {
-          inner = inner.firstElementChild;
+          inner = inner.firstElementChild as HTMLElement;
         }
         rect = inner.getBoundingClientRect();
       } else {
@@ -183,7 +184,17 @@ function FloatingLinkEditor({ editor }: { editor: LexicalEditor }) {
   );
 }
 
-function Select({ onChange, className, options, value }) {
+function Select({
+  onChange,
+  className,
+  options,
+  value,
+}: {
+  onChange: React.ChangeEventHandler<HTMLSelectElement> | undefined;
+  className: string;
+  options: string[];
+  value: string;
+}) {
   return (
     <select className={className} onChange={onChange} value={value}>
       <option hidden={true} value="" />
@@ -298,7 +309,7 @@ export default function ToolbarPlugin() {
 
   const codeLanguges = useMemo(() => getCodeLanguages(), []);
   const onCodeLanguageSelect = useCallback(
-    (e) => {
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
       editor.update(() => {
         if (selectedElementKey !== null) {
           const node = $getNodeByKey(selectedElementKey);
