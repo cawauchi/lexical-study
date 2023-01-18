@@ -10,6 +10,10 @@ import {
   $isRangeSelection,
   $createParagraphNode,
   $getNodeByKey,
+  LexicalEditor,
+  RangeSelection,
+  NodeSelection,
+  GridSelection,
 } from "lexical";
 import { $isLinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link";
 import {
@@ -18,21 +22,10 @@ import {
   $isAtNodeEnd,
 } from "@lexical/selection";
 import { $getNearestNodeOfType, mergeRegister } from "@lexical/utils";
-import {
-  INSERT_ORDERED_LIST_COMMAND,
-  INSERT_UNORDERED_LIST_COMMAND,
-  REMOVE_LIST_COMMAND,
-  $isListNode,
-  ListNode,
-} from "@lexical/list";
+import { $isListNode, ListNode } from "@lexical/list";
 import { createPortal } from "react-dom";
+import { $isHeadingNode } from "@lexical/rich-text";
 import {
-  $createHeadingNode,
-  $createQuoteNode,
-  $isHeadingNode,
-} from "@lexical/rich-text";
-import {
-  $createCodeNode,
   $isCodeNode,
   getDefaultCodeLanguage,
   getCodeLanguages,
@@ -64,13 +57,15 @@ function positionEditorElement(editor: any, rect: any) {
   }
 }
 
-function FloatingLinkEditor({ editor }) {
+function FloatingLinkEditor({ editor }: { editor: LexicalEditor }) {
   const editorRef = useRef(null);
   const inputRef = useRef(null);
   const mouseDownRef = useRef(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [isEditMode, setEditMode] = useState(false);
-  const [lastSelection, setLastSelection] = useState(null);
+  const [lastSelection, setLastSelection] = useState<
+    RangeSelection | NodeSelection | GridSelection | null
+  >(null);
 
   const updateLinkEditor = useCallback(() => {
     const selection = $getSelection();
@@ -217,7 +212,7 @@ function Select({ onChange, className, options, value }) {
   );
 }
 
-function getSelectedNode(selection) {
+function getSelectedNode(selection: RangeSelection) {
   const anchor = selection.anchor;
   const focus = selection.focus;
   const anchorNode = selection.anchor.getNode();
@@ -285,112 +280,12 @@ function BlockOptionsDropdownList({
     setShowBlockOptionsDropDown(false);
   };
 
-  const formatLargeHeading = () => {
-    if (blockType !== "h1") {
-      editor.update(() => {
-        const selection = $getSelection();
-
-        if ($isRangeSelection(selection)) {
-          $wrapNodes(selection, () => $createHeadingNode("h1"));
-        }
-      });
-    }
-    setShowBlockOptionsDropDown(false);
-  };
-
-  const formatSmallHeading = () => {
-    if (blockType !== "h2") {
-      editor.update(() => {
-        const selection = $getSelection();
-
-        if ($isRangeSelection(selection)) {
-          $wrapNodes(selection, () => $createHeadingNode("h2"));
-        }
-      });
-    }
-    setShowBlockOptionsDropDown(false);
-  };
-
-  const formatBulletList = () => {
-    if (blockType !== "ul") {
-      editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND);
-    } else {
-      editor.dispatchCommand(REMOVE_LIST_COMMAND);
-    }
-    setShowBlockOptionsDropDown(false);
-  };
-
-  const formatNumberedList = () => {
-    if (blockType !== "ol") {
-      editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND);
-    } else {
-      editor.dispatchCommand(REMOVE_LIST_COMMAND);
-    }
-    setShowBlockOptionsDropDown(false);
-  };
-
-  const formatQuote = () => {
-    if (blockType !== "quote") {
-      editor.update(() => {
-        const selection = $getSelection();
-
-        if ($isRangeSelection(selection)) {
-          $wrapNodes(selection, () => $createQuoteNode());
-        }
-      });
-    }
-    setShowBlockOptionsDropDown(false);
-  };
-
-  const formatCode = () => {
-    if (blockType !== "code") {
-      editor.update(() => {
-        const selection = $getSelection();
-
-        if ($isRangeSelection(selection)) {
-          $wrapNodes(selection, () => $createCodeNode());
-        }
-      });
-    }
-    setShowBlockOptionsDropDown(false);
-  };
-
   return (
     <div className="dropdown" ref={dropDownRef}>
       <button className="item" onClick={formatParagraph}>
         <span className="icon paragraph" />
         <span className="text">Normal</span>
         {blockType === "paragraph" && <span className="active" />}
-      </button>
-      <button className="item" onClick={formatLargeHeading}>
-        <span className="icon large-heading" />
-        <span className="text">Large Heading</span>
-        {blockType === "h1" && <span className="active" />}
-      </button>
-      <button className="item" onClick={formatSmallHeading}>
-        <span className="icon small-heading" />
-        <span className="text">Small Heading</span>
-        {blockType === "h2" && <span className="active" />}
-      </button>
-      <button className="item" onClick={formatBulletList}>
-        <span className="icon bullet-list" />
-        <span className="text">Bullet List</span>
-        {blockType === "ul" && <span className="active" />}
-      </button>
-      <button className="item" onClick={formatNumberedList}>
-        <span className="icon numbered-list" />
-        <span className="text">Numbered List</span>
-        {blockType === "ol" && <span className="active" />}
-      </button>
-      <button className="item" onClick={formatQuote}>
-        <span className="icon quote" />
-        <span className="text">Quote</span>
-        {blockType === "quote" && <span className="active" />}
-      </button>
-      <button className="item" onClick={formatCode}>
-        <span className="icon code" />
-        <span className="text">Code Block</span>
-        {blockType === "code" && <span className="active" />}
       </button>
     </div>
   );
@@ -402,7 +297,9 @@ export default function ToolbarPlugin() {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [blockType, setBlockType] = useState("paragraph");
-  const [selectedElementKey, setSelectedElementKey] = useState(null);
+  const [selectedElementKey, setSelectedElementKey] = useState<string | null>(
+    null
+  );
   const [showBlockOptionsDropDown, setShowBlockOptionsDropDown] =
     useState(false);
   const [codeLanguage, setCodeLanguage] = useState("");
@@ -510,7 +407,11 @@ export default function ToolbarPlugin() {
 
   const insertLink = useCallback(() => {
     if (!isLink) {
-      editor.dispatchCommand(TOGGLE_LINK_COMMAND, "https://");
+      editor.dispatchCommand(TOGGLE_LINK_COMMAND, {
+        url: "https://",
+        rel: "noopener",
+        target: "_blank",
+      });
     } else {
       editor.dispatchCommand(TOGGLE_LINK_COMMAND, null);
     }
@@ -521,7 +422,7 @@ export default function ToolbarPlugin() {
       <button
         disabled={!canUndo}
         onClick={() => {
-          editor.dispatchCommand(UNDO_COMMAND);
+          editor.dispatchCommand(UNDO_COMMAND, console.log(""));
         }}
         className="toolbar-item spaced"
         aria-label="Undo"
@@ -531,7 +432,7 @@ export default function ToolbarPlugin() {
       <button
         disabled={!canRedo}
         onClick={() => {
-          editor.dispatchCommand(REDO_COMMAND);
+          editor.dispatchCommand(REDO_COMMAND, console.log(""));
         }}
         className="toolbar-item"
         aria-label="Redo"
