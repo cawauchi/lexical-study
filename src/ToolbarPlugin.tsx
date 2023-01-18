@@ -8,7 +8,6 @@ import {
   SELECTION_CHANGE_COMMAND,
   $getSelection,
   $isRangeSelection,
-  $createParagraphNode,
   $getNodeByKey,
   LexicalEditor,
   RangeSelection,
@@ -16,11 +15,7 @@ import {
   GridSelection,
 } from "lexical";
 import { $isLinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link";
-import {
-  $isParentElementRTL,
-  $wrapNodes,
-  $isAtNodeEnd,
-} from "@lexical/selection";
+import { $isAtNodeEnd } from "@lexical/selection";
 import { $getNearestNodeOfType, mergeRegister } from "@lexical/utils";
 import { $isListNode, ListNode } from "@lexical/list";
 import { createPortal } from "react-dom";
@@ -32,17 +27,6 @@ import {
 } from "@lexical/code";
 
 const LowPriority = 1;
-
-const supportedBlockTypes = new Set([
-  "paragraph",
-  "quote",
-  "code",
-  "h1",
-  "h2",
-  "ul",
-  "ol",
-]);
-
 function positionEditorElement(editor: any, rect: any) {
   if (rect === null) {
     editor.style.opacity = "0";
@@ -228,69 +212,6 @@ function getSelectedNode(selection: RangeSelection) {
   }
 }
 
-function BlockOptionsDropdownList({
-  editor,
-  blockType,
-  toolbarRef,
-  setShowBlockOptionsDropDown,
-}) {
-  const dropDownRef = useRef(null);
-
-  useEffect(() => {
-    const toolbar = toolbarRef.current;
-    const dropDown = dropDownRef.current;
-
-    if (toolbar !== null && dropDown !== null) {
-      const { top, left } = toolbar.getBoundingClientRect();
-      dropDown.style.top = `${top + 40}px`;
-      dropDown.style.left = `${left}px`;
-    }
-  }, [dropDownRef, toolbarRef]);
-
-  useEffect(() => {
-    const dropDown = dropDownRef.current;
-    const toolbar = toolbarRef.current;
-
-    if (dropDown !== null && toolbar !== null) {
-      const handle = (event) => {
-        const target = event.target;
-
-        if (!dropDown.contains(target) && !toolbar.contains(target)) {
-          setShowBlockOptionsDropDown(false);
-        }
-      };
-      document.addEventListener("click", handle);
-
-      return () => {
-        document.removeEventListener("click", handle);
-      };
-    }
-  }, [dropDownRef, setShowBlockOptionsDropDown, toolbarRef]);
-
-  const formatParagraph = () => {
-    if (blockType !== "paragraph") {
-      editor.update(() => {
-        const selection = $getSelection();
-
-        if ($isRangeSelection(selection)) {
-          $wrapNodes(selection, () => $createParagraphNode());
-        }
-      });
-    }
-    setShowBlockOptionsDropDown(false);
-  };
-
-  return (
-    <div className="dropdown" ref={dropDownRef}>
-      <button className="item" onClick={formatParagraph}>
-        <span className="icon paragraph" />
-        <span className="text">Normal</span>
-        {blockType === "paragraph" && <span className="active" />}
-      </button>
-    </div>
-  );
-}
-
 export default function ToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
   const toolbarRef = useRef(null);
@@ -300,16 +221,8 @@ export default function ToolbarPlugin() {
   const [selectedElementKey, setSelectedElementKey] = useState<string | null>(
     null
   );
-  const [showBlockOptionsDropDown, setShowBlockOptionsDropDown] =
-    useState(false);
   const [codeLanguage, setCodeLanguage] = useState("");
-  const [isRTL, setIsRTL] = useState(false);
   const [isLink, setIsLink] = useState(false);
-  const [isBold, setIsBold] = useState(false);
-  const [isItalic, setIsItalic] = useState(false);
-  const [isUnderline, setIsUnderline] = useState(false);
-  const [isStrikethrough, setIsStrikethrough] = useState(false);
-  const [isCode, setIsCode] = useState(false);
 
   const updateToolbar = useCallback(() => {
     const selection = $getSelection();
@@ -337,13 +250,6 @@ export default function ToolbarPlugin() {
           }
         }
       }
-      // Update text format
-      setIsBold(selection.hasFormat("bold"));
-      setIsItalic(selection.hasFormat("italic"));
-      setIsUnderline(selection.hasFormat("underline"));
-      setIsStrikethrough(selection.hasFormat("strikethrough"));
-      setIsCode(selection.hasFormat("code"));
-      setIsRTL($isParentElementRTL(selection));
 
       // Update links
       const node = getSelectedNode(selection);
@@ -439,20 +345,6 @@ export default function ToolbarPlugin() {
       >
         <i className="format redo" />
       </button>
-      {supportedBlockTypes.has(blockType) && (
-        <>
-          {showBlockOptionsDropDown &&
-            createPortal(
-              <BlockOptionsDropdownList
-                editor={editor}
-                blockType={blockType}
-                toolbarRef={toolbarRef}
-                setShowBlockOptionsDropDown={setShowBlockOptionsDropDown}
-              />,
-              document.body
-            )}
-        </>
-      )}
       {blockType === "code" ? (
         <>
           <Select
